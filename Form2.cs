@@ -18,6 +18,7 @@ using AForge;
 using AForge.Video;
 using AForge.Video.DirectShow;
 using ZXing;
+using ClosedXML.Excel;
 
 namespace QRCodeScanner
 {
@@ -79,22 +80,22 @@ namespace QRCodeScanner
                             captureDevice.Stop();
                         }
 
-                        // İlgili resim URL'sini indir
+                        
                         string imageUrl = "https://monitoring.e-kassa.gov.az/pks-monitoring/2.0.0/documents/BdcQ9LPwqcNy2gSyQYnpgRvodhY14c8ig1zvMjDMPzyx";
                         string imagePath = await DownloadImage(imageUrl, "C:\\Users\\Selim\\Pictures\\receipt.png");
 
-                        // OCR işlemi yap
+                       
                         string ocrText = PerformOCR(imagePath);
                         var (total, tax, date, receiptNo) = ExtractData(ocrText);
 
-                        // Sonuçları göster
+                        
                         MessageBox.Show(ocrText);
                         MessageBox.Show($"Total: {total}, TotalTax: {tax}, Date: {date}, ReceiptNo: {receiptNo}");
 
-                        // Veritabanına kaydet
+                        
                         SaveToDatabase(total, tax, date, receiptNo);
 
-                        // Linke yönlendir
+                        
                         Process.Start(new ProcessStartInfo
                         {
                             FileName = result.Text,
@@ -131,19 +132,19 @@ namespace QRCodeScanner
 
         public (string total, string totalTax, string date, string receiptNo) ExtractData(string ocrText)
         {
-            // Gerekli regex kalıplarını tanımla
+            
             string totalPattern = @"Total:? ?(\d+[.,]?\d{1,2})";
             string totalTaxPattern = @"Total Tax:? ?(\d+[.,]?\d{1,2})";
             string datePattern = @"Date:? ?(\d{2}/\d{2}/\d{4})";
             string receiptNoPattern = @"Receipt No:? ?(\d+)";
 
-            // OCR sonucundan değerleri regex ile al
+            
             var totalMatch = Regex.Match(ocrText, totalPattern);
             var taxMatch = Regex.Match(ocrText, totalTaxPattern);
             var dateMatch = Regex.Match(ocrText, datePattern);
             var receiptMatch = Regex.Match(ocrText, receiptNoPattern);
 
-            // Eşleşmeleri kontrol et
+            
             if (!totalMatch.Success) MessageBox.Show("Total değeri bulunamadı!");
             if (!taxMatch.Success) MessageBox.Show("Total Tax değeri bulunamadı!");
             if (!dateMatch.Success) MessageBox.Show("Date değeri bulunamadı!");
@@ -154,7 +155,7 @@ namespace QRCodeScanner
             Debug.WriteLine($"OCR'dan okunan Date: {dateMatch.Groups[1].Value}");
             Debug.WriteLine($"OCR'dan okunan ReceiptNo: {receiptMatch.Groups[1].Value}");
 
-            // Sonuçları döndür
+            
             return (
                 total: totalMatch.Groups[1].Value,
                 totalTax: taxMatch.Groups[1].Value,
@@ -165,7 +166,7 @@ namespace QRCodeScanner
 
         public void SaveToDatabase(string Total, string TotalTax, string ReceiptDate, string ReceiptNo)
         {
-            // Değerleri işleyip doğrula
+            
             Total = Total.Trim();
             TotalTax = TotalTax.Trim();
 
@@ -187,7 +188,7 @@ namespace QRCodeScanner
                 return;
             }
 
-            // Veritabanı bağlantısını oluştur
+            
             string connectionString = "Server=localhost;Database=receipt_infs;User Id=sys1;Password=12;";
             using (SqlConnection connection = new SqlConnection(connectionString))
             {
@@ -201,6 +202,42 @@ namespace QRCodeScanner
                 connection.Open();
                 command.ExecuteNonQuery();
             }
+        }
+        private void ExportDataToExcel()
+        {
+            
+            string connectionString = "Server=localhost;Database=receipt_infs;User Id=sys1;Password=12;";
+
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                
+                string query = "SELECT Total, TotalTax, Date, ReceiptNo FROM YourTable";
+                SqlDataAdapter adapter = new SqlDataAdapter(query, connection);
+
+                
+                DataTable dataTable = new DataTable();
+                adapter.Fill(dataTable);
+
+                using (var workbook = new XLWorkbook())
+                {
+                    var worksheet = workbook.Worksheets.Add("Veriler");
+
+                   
+                    worksheet.Cell(1, 1).Value = "Total";
+                    worksheet.Cell(1, 2).Value = "Total Tax";
+                    worksheet.Cell(1, 3).Value = "Date";
+                    worksheet.Cell(1, 4).Value = "Receipt No";
+
+                    
+                    worksheet.Cell(2, 1).InsertData(dataTable.AsEnumerable());
+
+                    
+                    workbook.SaveAs("C:\\Users\\Selim\\Documents\\excelExport\\Veriler.xlsx");
+                }
+            }
+            MessageBox.Show("Excel dosyası başarıyla kaydedildi!", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 }
